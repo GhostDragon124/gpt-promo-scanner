@@ -98,6 +98,21 @@ REGIONS = {
         "codes": [("wildmangong", "NG", "NGN")],
         "label": "🇳🇬 尼日利亚",
     },
+    "TH": {
+        "keywords": ["泰国", "🇹🇭"],
+        "codes": [("thinkingmachinesth", "TH", "THB")],
+        "label": "🇹🇭 泰国",
+    },
+    "SG": {
+        "keywords": ["新加坡", "🇸🇬"],
+        "codes": [("thinkingmachinessg", "SG", "SGD")],
+        "label": "🇸🇬 新加坡",
+    },
+    "PH": {
+        "keywords": ["菲律宾", "🇵🇭"],
+        "codes": [("thinkingmachinesph", "PH", "PHP")],
+        "label": "🇵🇭 菲律宾",
+    },
 }
 
 US_CODES = [
@@ -111,7 +126,7 @@ US_CODES = [
 
 CURRENCY_SYMBOLS = {
     "USD": "$", "GBP": "£", "EUR": "€", "AUD": "A$", "CAD": "C$",
-    "BRL": "R$", "NZD": "NZ$", "ZAR": "R", "NGN": "₦",
+    "BRL": "R$", "NZD": "NZ$", "ZAR": "R", "NGN": "₦", "THB": "฿", "SGD": "S$", "PHP": "₱",
 }
 
 # ─── 汇率 ────────────────────────────────────────────────────

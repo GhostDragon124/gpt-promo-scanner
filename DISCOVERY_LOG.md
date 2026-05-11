@@ -553,3 +553,79 @@ python auto_scan.py --no-price
 |------|-----------|---------|------|
 | 阶段七：自动扫描 | ~200 | 0 新码，19 个 Stripe URL | 含节点测速 + checkout API |
 | 阶段八：价格收集 | ~60 | 0 新码，19 条价格 | metadata API + 汇率换算 |
+
+---
+
+## 阶段九：VAT 陷阱 — 官网标价 ≠ Stripe 结账价
+
+### 9.1 奇怪的现象
+
+在计算促销码实付价格时，使用 `pricing-data.js` 的 `businessMonth.amount` 作为 base per-seat 价格，套用公式：
+
+```
+实付 = (base_per_seat × 2) − metadata_discount
+```
+
+对 TH、GB 等地区，公式结果与 Stripe 页面完全吻合。但对 DE 出现偏差：
+
+| 来源 | 金额 |
+|------|:----:|
+| pricing-data.js base | €26/seat |
+| 2 人 base | €52 |
+| metadata 折扣 | €28.57 |
+| 公式结果 | **€23.43** |
+| Stripe 实际 | **€18.00** |
+
+差 €5.43，原因不明。
+
+### 9.2 对比分析
+
+在深入查看 Stripe 页面后发现：
+
+```
+pricing-data.js:          €26/seat  ← 官网标价（含税）
+Stripe 小计 2 人:          €43.70   ← = €21.85/seat 税前
+```
+
+关键线索：**€26 ÷ 1.19（德国 VAT）= €21.85** ✅
+
+### 9.3 根因：VAT 价税分离
+
+| 项目 | 含 VAT (19%) | 不含 VAT |
+|------|:-----------:|:--------:|
+| Per-seat 价格 | €26.00 | €21.85 |
+| 2 人小计 | €52.00 | €43.70 |
+| 折扣 | — | −€28.57 |
+| 应付（税前） | — | €15.13 |
+| VAT (19%) | — | +€2.87 |
+| **Stripe 应付** | **€18.00** | |
+
+**pricing-data.js 存的是含税标价**（从 chatgpt.com/#pricing 页面抓取）。但 Stripe checkout 底层用**不含税价**计算折扣和实付，最后再加 VAT。
+
+不同地区的 VAT 税率不同：
+
+| 地区 | VAT/消费税 | pricing-data.js/seat | 不含税/seat |
+|------|:---------:|:-------------------:|:----------:|
+| DE | 19% | €26 | **€21.85** |
+| FR | 20% | €26 | **€21.67** |
+| GB | 20% | £18 | **£15.00** |
+| KE | 16% | $25 | **$21.55** |
+
+→ `aibuildgroupgb` 之前吻合只是巧合（含税 £18/seat，Stripe 也用 £18/seat 显示）。
+
+### 9.4 结论
+
+1. **`pricing-data.js` 的 base 价格是含税标价**，不是 Stripe 结账的不含税价
+2. **不同国家 VAT 不同**，需要查询各国消费税率才能逆向得到不含税 base
+3. **metadata API 的 discount 是在不含税基础上计算的**
+4. **唯一可靠的办法**：开 Stripe 页面看实付，或从 checkout API 响应中解析
+
+### 9.5 数据来源修正
+
+| 来源 | 是否可用于算实付 |
+|------|:--------------:|
+| pricing-data.js `businessMonth.amount` | ❌ 含税标价，非结账价 |
+| Metadata API `discount.value` | ✅ 不含税折扣（总折扣，非 per-seat） |
+| Checkout API 返回的 Stripe URL | ✅ 打开看实付最准 |
+
+后续自动扫描中，应**直接读取 Stripe 页面的实付金额**作为最终价格，不再依赖 pricing-data.js 的 base 价计算。
