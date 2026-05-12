@@ -84,7 +84,7 @@ token = "eyJhbGciOi..."
 
 ## 第一步：生成候选码
 
-促销码遵循固定的命名规则：
+根据目前已发现的码，大部分遵循这个命名规律：
 
 ```
 公司名(全小写去空格) + ISO 国家码(小写)
@@ -92,7 +92,10 @@ token = "eyJhbGciOi..."
 
 例如：`thinkingmachines` + `th` = `thinkingmachinesth`
 
-> 例外：UK 码后缀不统一，有的用 `uk`（如 `talentgeniusuk`），有的用 `gb`（如 `aibuildgroupgb`）。
+但**不是绝对的**，存在明显例外：
+- 有的码**没有国家后缀**（如 `firstfocus`，没有 AU）
+- UK 码后缀不统一，有的用 `uk`（`talentgeniusuk`），有的用 `gb`（`aibuildgroupgb`）
+- 可能还有其他未发现的命名变体
 
 ### 从哪找公司名单
 
