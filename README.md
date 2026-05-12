@@ -1,6 +1,7 @@
 # ChatGPT Team (Business) 促销码自动扫描工具
 
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003?style=flat-square)](https://linux.do/t/topic/2156521)
+[![English](https://img.shields.io/badge/English-README_EN-4CAF50?style=flat-square)](README_EN.md)
 
 > 原创研究首发于 [Linux Do 社区](https://linux.do/t/topic/2156521)（一级用户才可查看）
 >

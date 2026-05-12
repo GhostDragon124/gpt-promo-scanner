@@ -1,6 +1,7 @@
 # ChatGPT Team (Business) Promo Code Scanner
 
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003?style=flat-square)](https://linux.do/t/topic/2156521)
+[![中文](https://img.shields.io/badge/中文-README-2196F3?style=flat-square)](README.md)
 
 > Original research first published on [Linux Do Community](https://linux.do/t/topic/2156521) (level-1 users only)
 >
