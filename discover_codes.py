@@ -493,29 +493,17 @@ def _load_token():
     return config.get_token()
 
 
-# ─── Token 验证（必读: token 过期静默返回 invalid_code）────
-
-# 默认验证码 — 可按国家/可用性选择 1-3 个
-# 建议选不同国家、不同 base 的码，避免单个码过期导致误判
-VALIDATION_CODES = ["wildmangous", "wildmangoke", "datroaius"]
+# ─── Token 验证（用 Session API，不依赖促销码）────
 
 
-def validate_token(validation_codes=None):
+def validate_token():
     """验证 accessToken 是否仍然有效
 
-    用已知有效码调 eligibility API，若全部返回 invalid_code 说明 token 已过期。
-    传入 1-3 个码可避免单个码恰好过期时误判。
+    使用 Session API (/api/auth/session) 检测 token 有效性，不依赖任何促销码。
+    若 Session API 不通，再用 eligibility API 验证一次确认。
     必须在每次批量扫描前调用，否则过期 token 会导致全部 false negative。
-
-    参数:
-        validation_codes: 可选，自定义验证码列表（1-3 个）。默认用 VALIDATION_CODES。
     """
     from curl_cffi import requests as cffi_requests
-
-    codes = validation_codes or VALIDATION_CODES
-    if not codes:
-        print("❌ validate_token: 未提供验证码")
-        sys.exit(1)
 
     token = _load_token()
     session = cffi_requests.Session(impersonate="chrome136")
@@ -527,37 +515,31 @@ def validate_token(validation_codes=None):
         "Authorization": f"Bearer {token}",
     }
 
-    # 依次尝试多个验证码，避免单个码恰好过期时误判
-    last_error = ""
-    for test_code in codes:
-        try:
-            url = f"https://chatgpt.com/backend-api/promotions/eligibility/{test_code}?type=promo"
-            resp = session.get(url, headers=headers, timeout=10)
-            data = resp.json()
-            reason = data.get("ineligible_reason", {})
-            rc = reason.get("code", "")
+    # 方法1: Session API（最可靠，不依赖任何促销码）
+    try:
+        resp = session.get("https://chatgpt.com/api/auth/session", headers=headers, timeout=10)
+        data = resp.json()
+        if data.get("user"):
+            return  # Token 有效
+    except Exception:
+        pass
 
-            if data.get("is_eligible") or rc == "user_not_eligible":
-                return  # Token 有效
+    # 方法2: 用 dummy 码调 eligibility API 辅助确认
+    # Session API 可能在其他场景返回空 user，但 eligibility 仍可用
+    try:
+        url = "https://chatgpt.com/backend-api/promotions/eligibility/_dummy_token_check_000?type=promo"
+        resp = session.get(url, headers=headers, timeout=10)
+        data = resp.json()
+        if "error" not in data:
+            return  # eligibility API 接受了 token → 有效
+    except Exception:
+        pass
 
-            if rc == "invalid_code":
-                last_error = f"验证码 '{test_code}' 返回 invalid_code"
-                continue  # 尝试下一个验证码
-
-            last_error = f"未知响应: {str(data)[:100]}"
-        except Exception as e:
-            last_error = f"请求异常: {e}"
-            continue
-
-    # 所有验证码都失败 → token 很可能过期
+    # 两个方法都失败 → token 无效
     print(f"\n{'='*60}")
-    print(f"❌ Token 验证失败 — 所有验证码均返回 invalid_code")
+    print(f"❌ Token 验证失败 — accessToken 已过期或无效")
     print(f"{'='*60}")
-    print(f"  验证码: {', '.join(codes)}")
-    print(f"  原因: {last_error}")
-    print(f"\n  ⚠️  accessToken 已过期或无效!")
-    print(f"  ⚠️  继续扫描将全部返回 invalid_code (false negative)")
-    print(f"  ⚠️  之前已浪费了约 70,000 次 API 调用!")
+    print(f"\n  ⚠️  继续扫描将全部返回 invalid_code 或 401 (false negative)")
     print(f"\n  🔧 解决方法:")
     print(f"     1. 浏览器登录 chatgpt.com")
     print(f"     2. F12 → Console")
@@ -565,24 +547,21 @@ def validate_token(validation_codes=None):
     print(f"        const s = await (await fetch('/api/auth/session')).json();")
     print(f"        console.log(s.accessToken);")
     print(f"     4. 复制新 token 到 config.toml 或环境变量 OPENAI_TOKEN")
-    print(f"\n  💡 如果验证码本身已过期，可在脚本顶部修改 VALIDATION_CODES")
-    print(f"     或调用 validate_token(['code1', 'code2', 'code3']) 传新码")
     print(f"{'='*60}\n")
     sys.exit(1)
 
 
-def batch_check(candidates, delay=0.2, validation_codes=None):
+def batch_check(candidates, delay=0.2):
     """批量验证码是否存在（用 eligibility API，不切节点也能判断存在性）
 
     参数:
         candidates: 待验证码列表
         delay: 请求间隔秒数
-        validation_codes: 可选，用于 token 验证的 1-3 个码，默认用 VALIDATION_CODES
 
     返回: {code: "EXISTS"|"ELIGIBLE"|"not_found"|"error"}
     """
-    # 先验证 token 是否有效（可指定 1-3 个验证码，避免单个码过期误判）
-    validate_token(validation_codes)
+    # 先验证 token 是否有效（用 Session API，不依赖促销码）
+    validate_token()
 
     from curl_cffi import requests as cffi_requests
 
